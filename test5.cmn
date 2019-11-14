@@ -1,0 +1,10 @@
+var
+a, b, c: integer;
+d: float;
+e: string;
+begin
+	a := 26;
+	b := a/2;
+	c := a + b + sqrt(25) - (6 - 3);
+	writeln(c);
+end
