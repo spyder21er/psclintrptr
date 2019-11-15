@@ -1,6 +1,0 @@
-var
-a, b, c : integer;
-begin
-	a := 26;
-	writeln(a);
-end

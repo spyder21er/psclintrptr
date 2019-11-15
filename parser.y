@@ -102,6 +102,13 @@ assignstmt          : ID ASSIGNOP expressions
                             {
                                 p = $3;
                                 p->isNull = false;
+                                sym[string($1)] = p;
+                            }
+                            else if (p->type == CONTINOUS && $3->type == DISCRETE)
+                            {
+                                p->d = (double) $3->i;
+                                p->isNull = false;
+                                sym[string($1)] = p;
                             }
                             else
                             {
@@ -351,7 +358,7 @@ void printMe(Node* p, bool withendl = false)
 
 bool isNumber(Node* p)
 {
-    return (p->type == INTEGER || p->type == CONTINOUS);
+    return (p->type == DISCRETE || p->type == CONTINOUS);
 }
 
 Node* calculate(Node* a, Node* b, int optr)
