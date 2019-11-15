@@ -3,13 +3,13 @@
 %{
 #include <string>
 #include <sstream>
+#include "header.hpp"
 #include "parser.hpp"
 using namespace std;
 
 int line_no = 1;
 int to_int(const char * s);
 double to_real(const char *s);
-char * stripText(const char *s);
 
 %}
 
@@ -74,8 +74,8 @@ great_equal         {greater_than}{equal}
 "<"                 { return LESSTHAN; }
 ">"                 { return GREATERTHAN; }
 {identifier}        { sscanf(yytext, "%s", yylval.text);return ID; }
-{str_lit}           { sscanf(stripText(yytext), "%s", yylval.text); return STRLIT; }
-{int_lit}           { yylval.real = to_real(yytext); return INTLIT; }
+{str_lit}           { strcpy(yylval.text, string(yytext).substr(1, strlen(yytext) - 2).c_str()); return STRLIT; }
+{int_lit}           { yylval.integer = to_int(yytext); return INTLIT; }
 {flt_lit}           { yylval.real = to_real(yytext); return FLTLIT; }
 {inline_com}        ;
 {multi_com}         ;
@@ -99,15 +99,4 @@ double to_real(const char *s)
     double n;
     ss >> n;
     return n;
-}
-
-
-char * stripText(const char * s)
-{
-    char *cpy;
-    string ss(s);
-    ss.erase(0,1);
-    ss.erase(ss.end() - 1, ss.end());
-    strcpy(cpy, ss.c_str());
-    return cpy;
 }

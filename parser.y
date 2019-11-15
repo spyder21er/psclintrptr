@@ -1,18 +1,18 @@
 %{
-#include <iostream>
-#include <map>
-#include <vector>
-#include <cmath>
-#include <cstring>
-using namespace std;
+#include "header.hpp"
 
 int yylex (void);
 void yyerror (const char *);
-
-map<string, double> nums;
-map<string, string> strs;
-map<string, string> types;
+void addToSym(vector<string> names, vType t);
+bool sameType(Node* a, Node* b);
+bool isDeclared(string s);
+bool isNumber(Node* p);
+void printMe(Node* p, bool withendl);
+Node* calculate(Node* a, Node* b, int optr);
+map<string, Node*> sym;
+map<vType, string> typeName;
 vector<string> vars;
+extern int yylineno;
 
 %}
 
@@ -22,26 +22,28 @@ vector<string> vars;
 %token EQUAL GREATERTHAN LESSTHAN GEQ LEQ NOTEQUAL
 %token OPENPAR CLOSEPAR COLON COMMA SEMICOLON
 %token REP DOCOND FORCOND ELSECOND IFCOND THENCOND TOCOND UNTIL WHILECOND
-%token <real> FLTLIT INTLIT 
+%token <real> FLTLIT
+%token <integer> INTLIT
 %token <text> STRLIT ID
 %token FLOAT INTEGER STRING VAR CHAR BOOL
 
-%type <real> term factor
-%type <text> stringliterals
+%type <vPtr> term factor expressions
 
 %left ADD SUBTRACT
 %left MULTIPLY DIVIDE
 
-%union{
+%union {
     char text[256];
+    int integer;
     double real;
+    Node * vPtr;
 }
 
 %start  program
 
 %%
 
-program             : { cout << "Empty file!" << endl; exit(1); }
+program             : { cout << "Empty input file!" << endl; exit(1); }
                     | varpart blockpart
                     | blockpart 
                     ;
@@ -52,33 +54,24 @@ varlist             : identifiers COLON type SEMICOLON varlist
                     ;
 type                : STRING 
                     {
-                        for (int i = 0; i < vars.size(); i++)
-                        {
-                            strs[vars[i]];
-                            types[vars[i]] = "text";
-                        }
-                        vars.clear();
+                        addToSym(vars, TEXT);
                     }
                     | INTEGER 
                     {
-                        for (int i = 0; i < vars.size(); i++)
-                        {
-                            nums[vars[i]];
-                            types[vars[i]] = "real";
-                        }
-                        vars.clear();
+                        addToSym(vars, DISCRETE);
                     }
-                    | FLOAT 
+                    | FLOAT
                     {
-                        for (int i = 0; i < vars.size(); i++)
-                        {
-                            nums[vars[i]];
-                            types[vars[i]] = "real";
-                        }
-                        vars.clear();
+                        addToSym(vars, CONTINOUS);
                     }
-                    | CHAR 
+                    | CHAR
+                    {
+                        addToSym(vars, CHARACTER);
+                    }
                     | BOOL
+                    {
+                        addToSym(vars, BOOLEAN);
+                    }
                     ;
 identifiers         : ID COMMA identifiers
                     {
@@ -102,26 +95,56 @@ statement           : assignstmt
                     ;
 assignstmt          : ID ASSIGNOP expressions 
                     {
-                        string s($1);
-                        nums[s] = $<real>3;
-                    }
-                    | ID ASSIGNOP stringliterals 
-                    {
-                        string s($1);
-                        strs[s] = string($3);
+                        if (isDeclared(string($1)))
+                        {
+                            Node* p = sym[string($1)];
+                            if (sameType(p, $3))
+                            {
+                                p = $3;
+                                p->isNull = false;
+                            }
+                            else
+                            {
+                                cout << "Error: Cannot assign " << typeName[$3->type] << " to " 
+                                    << typeName[p->type] << " on line " << yylineno << endl;
+                                exit(-1);
+                            }
+                        }
+                        else
+                        {
+                            cout << "Error: Cannot assign to undeclared indentifier " 
+                                << $1 << " on line " << yylineno << endl;
+                            exit(-1);
+                        }
                     }
                     ;
 expressions         : term
                     {
-                        $<real>$ = $<real>1;
+                        $$ = $1;
                     }
                     | expressions ADD term
                     {
-                        $<real>$ = $<real>1 + $3;
+                        if (isNumber($1) && isNumber($3))
+                        {
+                            $$ = calculate($1, $3, ADD);
+                        }
+                        else
+                        {
+                            cout << "Error: Cannot add NAN on line " << yylineno << endl;
+                            exit(-1);
+                        }
                     }
                     | expressions SUBTRACT term
                     {
-                        $<real>$ = $<real>1 - $3;
+                        if (isNumber($1) && isNumber($3))
+                        {
+                            $$ = calculate($1, $3, SUBTRACT);
+                        }
+                        else
+                        {
+                            cout << "Error: Cannot subtract NAN on line " << yylineno << endl;
+                            exit(-1);
+                        }
                     }
                     ;
 term                : factor
@@ -130,54 +153,146 @@ term                : factor
                     }
                     | term MULTIPLY factor
                     {
-                        $$ = $1 * $3;
+                        if (isNumber($1) && isNumber($3))
+                        {
+                            $$ = calculate($1, $3, MULTIPLY);
+                        }
+                        else
+                        {
+                            cout << "Error: Cannot multiply NAN on line " << yylineno << endl;
+                            exit(-1);
+                        }
                     }
                     | term DIVIDE factor
                     {
-                        $$ = $1 / $3;
+                        if (isNumber($1) && isNumber($3))
+                        {
+                            $$ = calculate($1, $3, DIVIDE);
+                        }
+                        else
+                        {
+                            cout << "Error: Cannot divide NAN on line " << yylineno << endl;
+                            exit(-1);
+                        }
                     }
                     ;
 factor              : INTLIT
                     {
-                        $$ = $1;
+                        Node* p = new Node;
+                        p->i = $1;
+                        p->type = DISCRETE;
+                        $$ = p;
                     }
                     | FLTLIT
                     {
-                        $$ = $1;
+                        Node* p = new Node;
+                        p->d = $1;
+                        p->type = CONTINOUS;
+                        $$ = p;
+                    }
+                    | STRLIT
+                    {
+                        Node* p = new Node;
+                        p->s = string($1);
+                        p->type = TEXT;
+                        $$ = p;
                     }
                     | ID
                     {
-                        $$ = nums[string($1)];
+                        if (isDeclared(string($1)))
+                        {
+                            Node* p = sym[string($1)];
+                            if (p->isNull)
+                            {
+                                cout << "Error: Cannot use uninitialized identifier " << string($1) << " on line " << yylineno << endl;
+                                exit(-1);
+                            }
+                            $$ = p;
+                        }
+                        else
+                        {
+                            cout << "Undeclared identifier " << $1 << " on line " << yylineno << endl;
+                            exit(-1);
+                        }
                     }
                     | ABSFUNC OPENPAR expressions CLOSEPAR
                     {
-                        $$ = abs($<real>3);
+                        vType t = $3->type;
+                        Node* p = new Node;
+                        if (t == DISCRETE) 
+                        {
+                            p->i = abs($3->i);
+                            p->type = DISCRETE;
+                            $$ = p;
+                        }
+                        else if (t == CONTINOUS)
+                        {
+                            p->d = abs($3->d);
+                            p->type = CONTINOUS;
+                            $$ = p;
+                        }
+                        else
+                        {
+                            cout << "Error: Cannot get abs() value of NAN on line " << yylineno << endl;
+                            exit(-1);
+                        }
                     }
                     | EXPRFUNC OPENPAR expressions CLOSEPAR
                     {
-                        $$ = exp($<real>3);
+                        vType t = $3->type;
+                        Node* p = new Node;
+                        if (t == DISCRETE) 
+                        {
+                            p->i = exp($3->i);
+                            p->type = DISCRETE;
+                            $$ = p;
+                        }
+                        else if (t == CONTINOUS)
+                        {
+                            p->d = exp($3->d);
+                            p->type = CONTINOUS;
+                            $$ = p;
+                        }
+                        else
+                        {
+                            cout << "Error: Cannot get exp() value of NAN on line " << yylineno << endl;
+                            exit(-1);
+                        }
                     }
                     | SQRTFUNC OPENPAR expressions CLOSEPAR
                     {
-                        $$ = sqrt($<real>3);
+                        vType t = $3->type;
+                        Node* p = new Node;
+                        if (t == DISCRETE)
+                        {
+                            p->d = sqrt($3->i);
+                            p->type = CONTINOUS;
+                            $$ = p;
+                        }
+                        else if (t == CONTINOUS)
+                        {
+                            p->d = sqrt($3->d);
+                            p->type = CONTINOUS;
+                            $$ = p;
+                        }
+                        else
+                        {
+                            cout << "Error: Cannot get sqrt() value of NAN on line " << yylineno << endl;
+                            exit(-1);
+                        }
                     }
                     | OPENPAR expressions CLOSEPAR
                     {
-                        $$ = $<real>2;
+                        $$ = $2;
                     }
                     ;
-printstmt           : WRITELN OPENPAR stringliterals CLOSEPAR
+printstmt           : WRITE OPENPAR expressions CLOSEPAR
                     {
-                        cout << string($3) << endl;
+                        printMe($3, false);
                     }
                     | WRITELN OPENPAR expressions CLOSEPAR
                     {
-                        cout << $<real>3 << endl;
-                    }
-                    ;
-stringliterals      : STRLIT
-                    {
-                        strcpy($$, $1);
+                        printMe($3, true);
                     }
                     ;
 
@@ -185,8 +300,107 @@ stringliterals      : STRLIT
 %%
 void yyerror(const char *s)
 {
-    extern int yylineno;
     printf("%s on line %d.\n", s, yylineno);
+}
+
+void addToSym(vector<string> names, vType t)
+{
+    for (int i = 0; i < names.size(); i++)
+    {
+        Node* p = new Node;
+        p->isNull = true;
+        p->type = t;
+        p->isID = true;
+        sym[names[i]] = p;
+    }
+    names.clear();
+}
+
+bool sameType(Node* a, Node* b)
+{
+    return a->type == b->type;
+}
+
+bool isDeclared(string s)
+{
+    return sym.find(s) != sym.end();
+}
+
+void printMe(Node* p, bool withendl = false)
+{
+    switch(p->type)
+    {
+        case DISCRETE:
+            cout << p->i;
+            break;
+        case CONTINOUS:
+            cout << p->d;
+            break;
+        case TEXT:
+            cout << p->s;
+            break;
+        case CHARACTER:
+            cout << p->c;
+            break;
+        case BOOLEAN:
+            cout << p->b;
+            break;
+    }
+    if (withendl) cout << endl;
+}
+
+bool isNumber(Node* p)
+{
+    return (p->type == INTEGER || p->type == CONTINOUS);
+}
+
+Node* calculate(Node* a, Node* b, int optr)
+{
+    Node* p = new Node;
+    vType a_type = a->type;
+    vType b_type = b->type;
+    if (a_type == DISCRETE && b_type == DISCRETE)
+    {
+        p->type = DISCRETE;
+        switch(optr)
+        {
+            case ADD:
+                p->i = a->i + b->i;
+                break;
+            case SUBTRACT:
+                p->i = a->i - b->i;
+                break;
+            case MULTIPLY:
+                p->i = a->i * b->i;
+                break;
+            case DIVIDE:
+                p->i = a->i / b->i;
+                break;
+        }
+    }
+    else
+    {
+        p->type = CONTINOUS;
+        double fact1 = (a_type == CONTINOUS) ? a->d : (double) a->i;
+        double fact2 = (b_type == CONTINOUS) ? b->d : (double) b->i;
+        switch(optr)
+        {
+            case ADD:
+                p->d = fact1 + fact2;
+                break;
+            case SUBTRACT:
+                p->d = fact1 - fact2;
+                break;
+            case MULTIPLY:
+                p->d = fact1 * fact2;
+                break;
+            case DIVIDE:
+                p->d = fact1 / fact2;
+                break;
+        }
+    }
+
+    return p;
 }
 
 int main(int argc, char * argv[])
@@ -196,6 +410,12 @@ int main(int argc, char * argv[])
         cerr << argv[0] << ": File " << argv[1] << " cannot be opened.\n";
         exit(1);
     }
+    typeName[VOID] = "VOID";
+    typeName[TEXT] = "TEXT";
+    typeName[DISCRETE] = "INTEGER";
+    typeName[CONTINOUS] = "REAL";
+    typeName[CHARACTER] = "CHARACTER";
+    typeName[BOOLEAN] = "BOOLEAN";
     yyparse();
     printf("\n");
     return 0;
