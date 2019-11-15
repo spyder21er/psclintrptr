@@ -27,7 +27,7 @@ extern int yylineno;
 %token <text> STRLIT ID
 %token FLOAT INTEGER STRING VAR CHAR BOOL
 
-%type <vPtr> term factor expressions
+%type <vPtr> term factor expressions print_list
 
 %left ADD SUBTRACT
 %left MULTIPLY DIVIDE
@@ -296,13 +296,19 @@ factor              : INTLIT
                         $$ = $2;
                     }
                     ;
-printstmt           : WRITE OPENPAR expressions CLOSEPAR
+printstmt           : WRITE OPENPAR print_list CLOSEPAR
+                    | WRITELN OPENPAR print_list CLOSEPAR
+                    {
+                        cout << endl;
+                    }
+                    ;
+print_list          :  print_list COMMA expressions
                     {
                         printMe($3, false);
                     }
-                    | WRITELN OPENPAR expressions CLOSEPAR
+                    | expressions
                     {
-                        printMe($3, true);
+                        printMe($1, false);
                     }
                     ;
 

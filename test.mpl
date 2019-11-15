@@ -8,5 +8,5 @@ begin
 	d := 3.1 + 4.7 + abs(-30);
 	c := 3;
 	e := 'hello world!';
-	writeln('Helloworld!');
+	writeln('Helloworld!', a, ' ', b, ' ', c, ' ', d, ' ', e);
 end
