@@ -1,8 +1,6 @@
 %option noyywrap
 %option yylineno
 %{
-#include <string>
-#include <sstream>
 #include "header.hpp"
 #include "parser.hpp"
 using namespace std;

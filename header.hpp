@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstring>
 #include <string>
+#include <sstream>
 using namespace std;
 
 typedef enum
