@@ -7,6 +7,6 @@ begin
 	b := a/2;
 	d := 3.1 + 4.7 + abs(-30);
 	c := 3;
-	e := 'test';
-	writeln(c);
+	e := 'hello world!';
+	writeln('Helloworld!');
 end

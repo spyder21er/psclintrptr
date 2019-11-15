@@ -55,14 +55,17 @@ varlist             : identifiers COLON type SEMICOLON varlist
 type                : STRING 
                     {
                         addToSym(vars, TEXT);
+                        vars.clear();
                     }
                     | INTEGER 
                     {
                         addToSym(vars, DISCRETE);
+                        vars.clear();
                     }
                     | FLOAT
                     {
                         addToSym(vars, CONTINOUS);
+                        vars.clear();
                     }
                     | CHAR
                     {
@@ -320,7 +323,6 @@ void addToSym(vector<string> names, vType t)
         p->isID = true;
         sym[names[i]] = p;
     }
-    names.clear();
 }
 
 bool sameType(Node* a, Node* b)
