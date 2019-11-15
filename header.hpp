@@ -9,6 +9,13 @@ using namespace std;
 
 typedef enum
 {
+    VARIABLE,
+    IDENTIFIER,
+    OPERATOR
+} nodeType;
+
+typedef enum
+{
     VOID,
     TEXT,
     DISCRETE,
@@ -17,14 +24,31 @@ typedef enum
     BOOLEAN
 } vType;
 
-struct Node
+struct Variable
 {
     int i;
     double d;
     string s;
     bool b;
     char c;
-    vType type;
-    bool isNull;
-    bool isID;
+    vType t;
+    bool initialized;
+};
+
+struct Ast
+{
+    nodeType t;
+    int op;
+    Variable value;
+    struct Ast *l;
+    struct Ast *r;
+};
+
+typedef Ast* Node;
+
+struct leafNode
+{
+    nodeType t;
+    Variable value;
+    string id;
 };
